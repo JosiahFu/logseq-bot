@@ -2,16 +2,12 @@ import 'dotenv/config';
 import {
     Client,
     Events,
-    IntentsBitField,
     REST,
-    Routes,
-    SlashCommandBuilder,
-    ActivityType,
     GatewayIntentBits,
     PartialMessage,
     Message,
-    TextChannel,
     Partials,
+    TextBasedChannel,
 } from 'discord.js'
 import os from 'os'
 import path from 'path'
@@ -20,8 +16,6 @@ import fs from 'fs'
 const { BOT_TOKEN, APPLICATION_ID, LOGSEQ_DIRECTORY, OUTPUT_CHANNEL_ID } = process.env;
 
 const DELETE_DELAY = 15 * 1000
-
-let outputChannel: TextChannel
 
 const journalsDir = path.resolve(LOGSEQ_DIRECTORY.replace('~', os.homedir()), 'journals')
 
@@ -39,8 +33,8 @@ function discordToLogseq(text: string) {
     }).join('')
 }
 
-async function sendTemporary(text: string) {
-    const message = await outputChannel.send({
+async function sendTemporary(channel: TextBasedChannel, text: string) {
+    const message = await channel.send({
         content: text
     })
     setTimeout(() => message.delete(), DELETE_DELAY)
@@ -52,20 +46,20 @@ function addToJournal(text: string) {
     })
 }
 
-function replaceInJournal(oldText: string, newText: string, actionForError = 'replace') {
+function replaceInJournal(oldText: string, newText: string, channelForError: TextBasedChannel, actionForError = 'replace') {
     const current = currentJournal()
     const content = fs.readFileSync(current, 'utf-8')
     const newContent = content.replace(oldText, newText)
     console.log(content, newContent)
     if (content === newContent) {
-        sendTemporary(`Could not find entry to ${actionForError}:\n>>> ${oldText.trim()}`)
+        sendTemporary(channelForError, `Could not find entry to ${actionForError}:\n>>> ${oldText.trim()}`)
     } else {
         fs.writeFileSync(current, newContent)
     }
 }
 
-function deleteInJournal(text: string) {
-    replaceInJournal(text, '', 'delete')
+function deleteInJournal(text: string, channelForError: TextBasedChannel) {
+    replaceInJournal(text, '', channelForError, 'delete')
 }
 
 function isValidMessage(message: Message<boolean> | PartialMessage) {
@@ -91,7 +85,6 @@ const onExit = async () => {
 
 client.once(Events.ClientReady, () => {
     console.log('Bot is online!');
-    outputChannel = client.channels.cache.get(OUTPUT_CHANNEL_ID) as TextChannel
 
     process.on('SIGINT', onExit);
     process.on('SIGTERM', onExit);
@@ -105,13 +98,13 @@ client.on(Events.MessageCreate, message => {
 
 client.on(Events.MessageUpdate, (oldMessage, newMessage) => {
     if (isValidMessage(newMessage) && oldMessage.content !== null && newMessage.content !== null) {
-        replaceInJournal(discordToLogseq(oldMessage.content), discordToLogseq(newMessage.content))
+        replaceInJournal(discordToLogseq(oldMessage.content), discordToLogseq(newMessage.content), oldMessage.channel)
     }
 })
 
 client.on(Events.MessageDelete, (message) => {
     if (isValidMessage(message) && message.content !== null) {
-        deleteInJournal(discordToLogseq(message.content))
+        deleteInJournal(discordToLogseq(message.content), message.channel)
     }
 })
 
