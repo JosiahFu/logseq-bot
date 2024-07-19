@@ -1,0 +1,19 @@
+{
+  "name": "logseq-bot",
+  "version": "1.0.0",
+  "description": "A discord bot to send notes to a Logseq journal",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js"
+  },
+  "author": "ThePotatoArchivist",
+  "license": "MIT",
+  "type": "module",
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "dotenv": "^16.3.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
